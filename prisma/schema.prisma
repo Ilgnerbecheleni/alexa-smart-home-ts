@@ -1,0 +1,96 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum DeviceType {
+  LIGHT
+  SWITCH
+  FAN
+  THERMOSTAT
+  SMARTLOCK
+  CONTACT_SENSOR
+  MOTION_SENSOR
+}
+
+enum DeviceIntegration {
+  BOARD         // sua placa, topic padrão users/<userId>/devices/<endpointId>
+  CUSTOM_TOPIC  // device de terceiro, tópico customizado
+}
+
+
+
+
+model User {
+  id       String   @id @default(cuid())
+  email    String   @unique
+  password String
+
+  devices  Device[]
+  tokens   Token[]
+
+  resetTokens PasswordResetToken[]  // <--- ADICIONA ISSO
+
+  authCodes AuthCode[]
+    verifyTokens  EmailVerificationToken[]  // <- NOVO
+  emailVerified Boolean @default(false)   // <- NOVO
+}
+
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+
+model Token {
+  id           String   @id @default(cuid())
+  accessToken  String   @unique
+  refreshToken String   @unique
+  expiresAt    DateTime
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Device {
+  id          String            @id @default(cuid())
+  name        String
+  endpointId  String            @unique
+  topic       String
+  description String?
+  powerState  String            @default("OFF")
+  userId      String
+  type        DeviceType
+  integration DeviceIntegration @default(BOARD)
+  channels    Int               @default(1)    // 👈 novo campo: quantidade de canais
+  user        User              @relation(fields: [userId], references: [id])
+  createdAt   DateTime          @default(now())
+}
+
+
+model AuthCode {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  code      String   @unique
+  expiresAt DateTime
+}
