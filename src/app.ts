@@ -30,8 +30,46 @@ app.get("/devices", devices.list.bind(devices));
 app.post("/devices", devices.create.bind(devices));
 app.patch("/devices/:id/power", devices.updatePower.bind(devices));
 
-app.get("/", (_req, res) => {
-  res.send("Alexa Smart Home TS backend is running");
+const startTime = new Date(); 
+
+// Função auxiliar para formatar o tempo de atividade
+function formatUptime(seconds:number) {
+    function pad(s:number) {
+        return (s < 10 ? '0' : '') + s;
+    }
+    const days = Math.floor(seconds / (3600 * 24));
+    seconds %= (3600 * 24);
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const minutes = Math.floor(seconds / 60);
+    seconds %= 60;
+    
+    let result = '';
+    if (days > 0) result += days + 'd ';
+    result += pad(hours) + 'h ' + pad(minutes) + 'm ' + pad(seconds) + 's';
+    return result.trim();
+}
+
+
+app.get("/health", (_req, res) => {
+    // Calcula o tempo de atividade da aplicação (uptime) em segundos
+    const uptimeSeconds = process.uptime();
+    
+    // Obtém a hora atual e a hora de início
+    const currentTime = new Date();
+    
+    const healthInfo = {
+        status: "UP",
+        service: "Alexa Smart Home TS Backend",
+        version: process.env.npm_package_version || "N/A", // Pega a versão do package.json se estiver disponível
+        currentTime: currentTime.toISOString(),
+        startTime: startTime.toISOString(),
+        uptimeFormatted: formatUptime(uptimeSeconds),
+        uptimeSeconds: Math.floor(uptimeSeconds)
+    };
+
+    // Responde com o status 200 (OK) e os dados formatados
+    res.status(200).json(healthInfo);
 });
 
 export default app;
