@@ -62,7 +62,7 @@ app.get("/health", (_req, res) => {
     const healthInfo = {
         status: "UP",
         service: "Alexa Smart Home TS Backend",
-        version: process.env.npm_package_version || "N/A", // Pega a versão do package.json se estiver disponível
+        version: "1.0", // Pega a versão do package.json se estiver disponível
         currentTime: currentTime.toISOString(),
         startTime: startTime.toISOString(),
         uptimeFormatted: formatUptime(uptimeSeconds),
