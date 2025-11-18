@@ -4,11 +4,12 @@ import bodyParser from "body-parser";
 import { AlexaController } from "./alexa/alexa.controller";
 import { AuthController } from "./auth/auth.controller";
 import { DevicesController } from "./devices/devices.controller";
-
+import cors from 'cors';
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(cors());
 
 const alexa = new AlexaController();
 const auth = new AuthController();
