@@ -35,7 +35,7 @@ export class AlexaController {
       return this.errorResponse(res, header, "INVALID_AUTHORIZATION_CREDENTIAL", "Invalid token");
     }
 
-    const userId = auth.userId;
+    const userId = auth.id;
 
     // 4. roteamento por namespace
     switch (header.namespace) {

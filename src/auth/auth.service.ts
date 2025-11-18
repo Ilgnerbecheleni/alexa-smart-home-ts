@@ -266,4 +266,30 @@ export class AuthService {
       data: { used: true },
     });
   }
+
+
+   async validateAccessToken(accessToken: string) {
+    if (!accessToken) {
+      throw new Error("missing_token");
+    }
+
+    const tokenRecord = await prisma.token.findUnique({
+      where: { accessToken },
+      include: { user: true },
+    });
+
+    if (!tokenRecord || !tokenRecord.user) {
+      const err: any = new Error("invalid_token");
+      err.code = "invalid_token";
+      throw err;
+    }
+
+    if (tokenRecord.expiresAt < new Date()) {
+      const err: any = new Error("token_expired");
+      err.code = "token_expired";
+      throw err;
+    }
+
+    return tokenRecord.user;
+  }
 }
