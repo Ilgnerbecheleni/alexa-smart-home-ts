@@ -6,8 +6,11 @@ import { CreateDeviceSchema } from "./devices.schemas";
 import { publishToDeviceCommand } from "../mqtt/mqttClient";
 // se você já usa esse helper de erros de Zod em outros lugares:
 import { zodError } from "../utils/zodError";
+import { DevicesService } from "./devices.service";
 
 export class DevicesController {
+  
+  private devicesService = new DevicesService();
   // ----------------- HELPER: pega usuário pelo access_token -----------------
   private async getUserFromRequest(req: Request, res: Response) {
     const authHeader = req.headers.authorization;
@@ -163,53 +166,47 @@ export class DevicesController {
   // Atualiza o estado de power de um device pertencente ao usuário
   // e envia comando MQTT para <device.topic>/command
   async updatePower(req: Request, res: Response) {
-    try {
-      const user = await this.getUserFromRequest(req, res);
-      if (!user) return;
+        try {
+            const user = await this.getUserFromRequest(req, res);
+            if (!user) return;
 
-      const { id } = req.params;
-      const { power } = req.body; // esperado: "ON" ou "OFF"
+            const { id } = req.params;
+            const { power } = req.body; // esperado: "ON" ou "OFF"
 
-      if (!power || (power !== "ON" && power !== "OFF")) {
-        return res.status(400).json({
-          error: "invalid_request",
-          error_description: "Campo 'power' deve ser 'ON' ou 'OFF'",
-        });
-      }
+            if (!power || (power !== "ON" && power !== "OFF")) {
+                return res.status(400).json({
+                    error: "invalid_request",
+                    error_description: "Campo 'power' deve ser 'ON' ou 'OFF'",
+                });
+            }
 
-      const device = await prisma.device.findFirst({
-        where: {
-          id,
-          userId: user.id,
-        },
-      });
+            // AQUI ESTÁ A CORREÇÃO:
+            // 3. Chame o Service, que faz o 'find', 'update DB' e 'publish MQTT' de forma segura (com await).
+            const result = await this.devicesService.sendPowerCommand(
+                user.id,
+                id,
+                power
+            );
 
-      if (!device) {
-        return res.status(404).json({
-          error: "device_not_found",
-          error_description: "Device não encontrado para este usuário",
-        });
-      }
+            // O service já atualizou o powerState no DB, então retornamos o estado de sucesso.
+            return res.json({ id, powerState: power });
 
-      // Atualiza no banco
-      const updated = await prisma.device.update({
-        where: { id: device.id },
-        data: {
-          powerState: power,
-        },
-      });
+        } catch (err: any) {
+            console.error(err);
 
-      // Publica comando MQTT para o device
-      // publishToDeviceCommand() publica em `${topic}/command`
-      publishToDeviceCommand(device.topic, { power });
+            // 4. Trate o erro específico de "Device não encontrado" lançado pelo Service.
+            if (err.message && err.message.includes("Device não encontrado")) {
+                return res.status(404).json({
+                    error: "device_not_found",
+                    error_description: err.message, // "Device não encontrado ou não pertence ao usuário"
+                });
+            }
 
-      return res.json(updated);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({
-        error: "internal_error",
-        error_description: "Could not update device power",
-      });
+            // 5. Erros de MQTT/outros erros internos.
+            return res.status(500).json({
+                error: "internal_error",
+                error_description: "Could not update device power",
+            });
+        }
     }
-  }
 }
